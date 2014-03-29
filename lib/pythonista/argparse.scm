@@ -33,11 +33,11 @@
                                                                          (set! width# 80))
                                                                      (set! width# (- width# 2))
                                                                      width#)) :accessor width-of)
-   ;; 現在のインデントレベルです？
+   ;; 現在のインデントカラム。
    (current-indent :allocation :instance :init-value 0)
-   ;; れべる？
+   ;; 現在のインデントレベルです？
    (level :allocation :instance :init-value 0)
-   ;; ？？？
+   ;; アクション(オプションの名前)の最大長。
    (action-max-length :allocation :instance :init-value 0)
    ;; 現在のセクションを示します。
    (current-section :allocation :instance :init-thunk (lambda (self)
@@ -53,17 +53,19 @@
 (define-method help-formatter-indent (self <help-formatter>)
   ;; ref を書くのがめんどくさいので、let を使います。
   (let ((current-indent# (ref self current-indent))
+        (indent-increment# (ref self indent-increment))
         (level# (ref self level)))
     ;; ( ˘⊖˘) ｡o( current-indent-of でも使えばよかったか…
-    (set! (ref self current-indent) (+ current-indent# current-indent#))
+    (set! (ref self current-indent) (+ current-indent# indent-increment#))
     (set! (ref self level) (+ level# 1))))
 
 ;; アンインデントを行います。
 (define-method help-formatter-unindent (self <help-formatter>)
   ;; ref を書くのがめんどくさいので、let を使います。
   (let ((current-indent# (ref self current-indent))
+        (indent-increment# (ref self indent-increment))
         (level# (ref self level)))
-    (set! (ref self current-indent) (- current-indent# current-indent#))
+    (set! (ref self current-indent) (- current-indent# indent-increment#))
     (set! (ref self level) (- level# 1))))
 
 ;; ヘルプ文字列における
@@ -101,7 +103,7 @@
 
 ;; <help-formatter> に <argument-section> と リストのペアを追加します。
 (define help-formatter-add-item! ((self <help-formatter>) (func <argument-section>) (args <list>))
-  (append (ref (current-section-of self) items) `(func . args)))
+  (push! (ref (current-section-of self) items) `(func . args)))
 
 ;; セクションを初めます。
 (define-method help-formatter-start-section ((self <help-formatter>) heading)
@@ -133,12 +135,26 @@
             (help-formatter-add-item! self (ref self format-usage) args))))
 
 ;; ヘルプフォーマッターにアクションを追加します。
-;; argument って書いてあるけど、実際は 引数フラグのインスタントですね。
+;; argument って書いてあるけど、実際は 引数フラグのインスタンスですね。
 (define-method help-formatter-add-argument! ((self <help-formatter>) (action <argument-action>))
   (unless (equal? (help-of action) ++suppress)
-          (let* ((get-invocation# (help-formatter-format-action-invocation self action))
-                (invocations# `(get-invocation# action)))
-            )))
+          (let* ((get-invocation# (ref self format-action-invocation))
+                 (invocations# (hash-table-get get-invocation# action)))
+            (map (lambda (subaction)
+                   (push! invocations# (hash-table-get get-invocation# subaction)))
+                 (help-formatter-iter-indented-subactions self action))
+            ;; アイテムの最大長を更新します。
+            (let* ((invocation-length# (fold max 0 (map string-length invocations#)))
+                   (action-length# (+ invocation-length# (ref current-indent self)))
+                   (action-max-length# (ref action-max-length self)))
+              (set! (ref action-max-length self) (max action-max-length# action-length#)))
+            (help-formatter-add-item! self (ref format-action self) `(action)))))
+
+;; action のリストをヘルプフォーマッターに全て追加します。
+(define-method help-formatter-add-arguments! ((self <help-formatter>) (actions <list>))
+  (map (lambda (action)
+         (help-formatter-add-argument! self action))
+       actions))
 
 (define-method help-formatter-format-action-invocation ((self <help-formatter>) (action <argument-action>))
   (if (not (null? (option-strings-of action)))
@@ -157,5 +173,10 @@
                    (option-strings-of action))
               (string-join parts# ", "))))))
 
-(define-method help-formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default)
-  )
+(define-method help-formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default-metavar)
+  (let ((result ""))
+    (cond ((not (null? (ref metavar action)))    (set! result (ref metavar action)))
+          ((not (null? (ref choices action)))    (let ((choice-strs# (map x->string (ref choices action))))
+                                                   #`"',(string-join choice-strs# ",")'")))
+    (lambda (tuple-size)
+      )))
