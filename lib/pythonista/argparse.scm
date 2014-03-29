@@ -137,7 +137,7 @@
 ;; ヘルプフォーマッターにアクションを追加します。
 ;; argument って書いてあるけど、実際は 引数フラグのインスタンスですね。
 (define-method help-formatter-add-argument! ((self <help-formatter>) (action <argument-action>))
-  (unless (equal? (help-of action) ++suppress)
+  (unless (equal? (help-of action) +suppress+)
           (let* ((get-invocation# (ref self format-action-invocation))
                  (invocations# (hash-table-get get-invocation# action)))
             (map (lambda (subaction)
@@ -177,6 +177,15 @@
   (let ((result ""))
     (cond ((not (null? (ref metavar action)))    (set! result (ref metavar action)))
           ((not (null? (ref choices action)))    (let ((choice-strs# (map x->string (ref choices action))))
-                                                   #`"',(string-join choice-strs# ",")'")))
+                                                   (string-append "'" (string-join choice-strs# ",") "'")))
+          (else (set! result default-metavar)))
     (lambda (tuple-size)
-      )))
+      (if (is-a result <list>)
+          result
+          ;; else
+          (make-list result tuple-size)))))
+
+
+(define-method help-formatter-format-args ((self <help-formatter>) (action <argument-action>) default-metavar)
+  (let ((get-metavar# (help-formatter-metavar-formatter self action default-metavar)))
+    )
