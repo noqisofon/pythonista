@@ -3,6 +3,15 @@
 
 (select-module argparse)
 
+(define-constant +suppess+ "==SUPPRESS==")
+(define-constant +optional+ "?")
+
+;; (define-class <attribute-holder> ()
+;;   ())
+
+;; (define-method attribute-holder-get-args ((self <attribute-holder>))
+;;   '())
+
 ;; <help-formatter> は --help 用の文字列をフォーマットするやつだと思います。
 ;; <argument-section> がその一部を管理する気がします。
 (define-class <help-formatter> ()
@@ -57,16 +66,23 @@
     (set! (ref self current-indent) (- current-indent# current-indent#))
     (set! (ref self level) (- level# 1))))
 
-;; プログラム引数の？？？
+;; ヘルプ文字列における
+;;
+;;     Global options:
+;;       --verbose                    やかましく喋るようにします。
+;;       -q, --quiet                  寡黙に作業を行います。
+;;       -h, --help                   このヘルプを表示します。
+;;
+;; のようなヘッダーと引数と説明のペアの一部分を表します。
 (define-class <argument-section> ()
   ;;  <help-formatter> クラスのインスタンスなんだぜ。
   ;;  相互参照するんだぜ？
   ((formatter :allocation :instance :init-keyword :formatter :accessor formatter-of)
    ;; 親のセクションを表します。通常は formatter スロットの current-section が入ります。
    (parent :allocation :instance :init-keyword :parent :init-value '() :accessor parent-of)
-   ;; ヘッダー？
+   ;; セクション名などのセクションのはじめに表示される文字列を表します。
    (heading :allocation :instance :init-keyword :heading :init-value '() :accessor heading-of)
-   ;; 何に使うのか不明
+   ;; 引数と説明などを保持するバッグ的アソシエーションリストを表します。
    (items :allocation :instance :init-value (make-hash-table))))
 
 (define-method argument-section-format-help ((self <argument-section>))
@@ -89,15 +105,6 @@
 
 ;; セクションを初めます。
 (define-method help-formatter-start-section ((self <help-formatter>) heading)
-  ;; セクションってつまり:
-  ;;
-  ;;     Global options:
-  ;;       --verbose                    やかましく喋るようにします。
-  ;;       -q, --quiet                  寡黙に作業を行います。
-  ;;       -h, --help                   このヘルプを表示します。
-  ;;
-  ;; っていうアレだと思う。
-  ;; heading は "Global options:" の部分かな。
   (help-formatter-indent self)
   (let ((section# (make <argument-section> :formatter self :parent (ref self current-section) :heading heading)))
     (add-item! (argument-section-format-help section#) '())
@@ -109,6 +116,46 @@
   (set! (ref current-section) (ref (ref self current-section) parent))
   (help-formatter-unindent self))
 
-;; 
-;; メソッドには、プレフィックスとしてクラス名を付けておいたほうがいいんだろうね…
-;; ということでつけました。
+;; ヘルプフォーマッターにテキストを追加します。
+(define-method help-formatter-add-text! ((self <help-formatter>) text)
+  (when (and (not (equal? text ++suppress)) (not (null? text)))
+        (help-formatter-add-item! self (ref self format-text) '(text))))
+
+;; ヘルプフォーマッターに Usage を追加します。
+;; Usage って:
+;;
+;;    prog [--version] [--help] [FILE1 [FILE2 ...]]
+;;
+;; みたいなやつね。
+(define-method help-formatter-add-usage! ((self <help-formatter>) usage actions groups :optional prefix)
+  (unless (equal? text ++suppress)
+          (let ((args (list usage actions groups prefix)))
+            (help-formatter-add-item! self (ref self format-usage) args))))
+
+;; ヘルプフォーマッターにアクションを追加します。
+;; argument って書いてあるけど、実際は 引数フラグのインスタントですね。
+(define-method help-formatter-add-argument! ((self <help-formatter>) (action <argument-action>))
+  (unless (equal? (help-of action) ++suppress)
+          (let* ((get-invocation# (help-formatter-format-action-invocation self action))
+                (invocations# `(get-invocation# action)))
+            )))
+
+(define-method help-formatter-format-action-invocation ((self <help-formatter>) (action <argument-action>))
+  (if (not (null? (option-strings-of action)))
+      (let* ((default# (help-formatter-metavar-for-positional self action))
+             (metavar# (first (help-formatter-metavar-formatter self action default))))
+        metavar#)
+      ;; else
+      (let ((parts# '()))
+        (if (zero? (argument-action-nargs-count action))
+            (set! parts# (append parts# (option-strings-of action)))
+            ;; else
+            (let* ((default# (help-formatter-metavar-for-optional self action))
+                   (args-string# (help-formatter-format-args self action default#)))
+              (map (lambda (option-string)
+                     (push! parts# (format "~A ~A" option-string args-string#)))
+                   (option-strings-of action))
+              (string-join parts# ", "))))))
+
+(define-method help-formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default)
+  )
