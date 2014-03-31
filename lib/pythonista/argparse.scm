@@ -175,10 +175,12 @@
 
 (define-method help-formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default-metavar)
   (let ((result ""))
-    (cond ((not (null? (ref metavar action)))    (set! result (ref metavar action)))
-          ((not (null? (ref choices action)))    (let ((choice-strs# (map x->string (ref choices action))))
-                                                   (string-append "'" (string-join choice-strs# ",") "'")))
-          (else (set! result default-metavar)))
+    (cond ((not (null? (ref metavar action)))
+           => (set! result (ref metavar action)))
+          ((not (null? (ref choices action)))
+           => (let ((choice-strs# (map x->string (ref choices action))))
+                (string-append "'" (string-join choice-strs# ",") "'")))
+          (else => (set! result default-metavar)))
     (lambda (tuple-size)
       (if (is-a result <list>)
           result

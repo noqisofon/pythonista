@@ -1,0 +1,44 @@
+# -*- coding: utf-8; -*-
+#+title: argparse コマンドラインオプション、引数、サブコマンドパーサー
+#+language: ja
+#+html: <link rel="stylesheet" type="text/css" href="./styles/screen.css" />
+
+* argparse とは
+
+=argparse= モジュールはユーザーフレンドリーなコマンドラインインターフェースの簡単な作成をサポートします。
+プログラムにどんな引数が必要か定義すると、 =argparse= が =*argv*= からそのオプションを解析する部分を引き受けます。
+=argparse= モジュールは自動的にヘルプメッセージと使用方法メッセージを生成し、ユーザーが不正なプログラム引数を指定した時にエラーメッセージを表示します。
+
+* 例
+
+次のコードは整数のリストを受け取って合計か最大値を返す Scheme プログラムです:
+
+#+begin_src scheme :tangle ../examples/sumnum.scm
+  (use pythonista.argparse)
+  
+  (let ((parser (make-argument-parser :description "Process some integers.")))
+    (argument-parser-on parser "integer" :metavar "N" :type <integer> :nargs "+"
+                        :help "an integer for the accumulator")
+    (argument-parser-on parser "--sum" :dest "accumulate" :action :store-const
+                        :const sum :default max
+                        :help "sum the integers (default: find the max)")
+    (let (args (argument-parser-parse-args parser))
+      (display (accumulate (ref integers args)))))
+#+end_src
+
+カレントディレクトリに上記のコードが =sumnum.scm= という名前のファイルに保存されたと仮定します。
+コマンドラインから便利なヘルプメッセージを表示できます:
+
+#+begin_example
+% gosh ./sumnum.scm -h
+usage: sumnum.scm [-h] [--sum] N [N ...]
+
+Process some integers.
+
+positional arguments:
+  N           an integer for the accumulator
+
+optional arguments:
+  -h, --help  show this help message and exit
+  --sum       sum the integers (default: find the max)
+#+end_example
