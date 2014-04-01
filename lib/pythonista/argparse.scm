@@ -50,23 +50,23 @@
 ;; ( ˘⊖˘) ｡o( 待てよ、export する時はクラスも export しなきゃいけないのかな……？
 
 ;; インデントします。
-(define-method help-formatter-indent (self <help-formatter>)
+(define-method formatter-indent (self <help-formatter>)
   ;; ref を書くのがめんどくさいので、let を使います。
-  (let ((current-indent# (ref self current-indent))
-        (indent-increment# (ref self indent-increment))
-        (level# (ref self level)))
+  (let ((current-indent% (ref self current-indent))
+        (indent-increment% (ref self indent-increment))
+        (level% (ref self level)))
     ;; ( ˘⊖˘) ｡o( current-indent-of でも使えばよかったか…
-    (set! (ref self current-indent) (+ current-indent# indent-increment#))
-    (set! (ref self level) (+ level# 1))))
+    (set! (ref self current-indent) (+ current-indent% indent-increment%))
+    (set! (ref self level) (+ level% 1))))
 
 ;; アンインデントを行います。
-(define-method help-formatter-unindent (self <help-formatter>)
+(define-method formatter-unindent (self <help-formatter>)
   ;; ref を書くのがめんどくさいので、let を使います。
-  (let ((current-indent# (ref self current-indent))
-        (indent-increment# (ref self indent-increment))
-        (level# (ref self level)))
-    (set! (ref self current-indent) (- current-indent# indent-increment#))
-    (set! (ref self level) (- level# 1))))
+  (let ((current-indent% (ref self current-indent))
+        (indent-increment% (ref self indent-increment))
+        (level% (ref self level)))
+    (set! (ref self current-indent) (- current-indent% indent-increment%))
+    (set! (ref self level) (- level% 1))))
 
 ;; ヘルプ文字列における
 ;;
@@ -87,7 +87,7 @@
    ;; 引数と説明などを保持するバッグ的アソシエーションリストを表します。
    (items :allocation :instance :init-value (make-hash-table))))
 
-(define-method argument-section-format-help ((self <argument-section>))
+(define-method section-format-help ((self <argument-section>))
   (if (not (null? (ref self parent)))
       ((formatter-of self) indent))
   (define join ((ref self formatter) join-parts))
@@ -102,26 +102,26 @@
   )
 
 ;; <help-formatter> に <argument-section> と リストのペアを追加します。
-(define help-formatter-add-item! ((self <help-formatter>) (func <argument-section>) (args <list>))
+(define formatter-add-item! ((self <help-formatter>) (func <argument-section>) (args <list>))
   (push! (ref (current-section-of self) items) `(func . args)))
 
 ;; セクションを初めます。
-(define-method help-formatter-start-section ((self <help-formatter>) heading)
-  (help-formatter-indent self)
-  (let ((section# (make <argument-section> :formatter self :parent (ref self current-section) :heading heading)))
-    (add-item! (argument-section-format-help section#) '())
+(define-method formatter-start-section ((self <help-formatter>) heading)
+  (formatter-indent self)
+  (let ((section% (make <argument-section> :formatter self :parent (ref self current-section) :heading heading)))
+    (add-item! (section-format-help section%) '())
     (set! (ref current-section) section)))
 
 ;; セクションを終わります。
-(define-method help-formatter-end-section ((self <help-formatter>))
+(define-method formatter-end-section ((self <help-formatter>))
   ;; 次のセクションに移るためにカレントセクションを戻してアンインデントします。
   (set! (ref current-section) (ref (ref self current-section) parent))
-  (help-formatter-unindent self))
+  (formatter-unindent self))
 
 ;; ヘルプフォーマッターにテキストを追加します。
-(define-method help-formatter-add-text! ((self <help-formatter>) text)
-  (when (and (not (equal? text ++suppress)) (not (null? text)))
-        (help-formatter-add-item! self (ref self format-text) '(text))))
+(define-method formatter-add-text! ((self <help-formatter>) text)
+  (when (and (not (equal? text +suppress+)) (not (null? text)))
+        (formatter-add-item! self (ref self format-text) '(text))))
 
 ;; ヘルプフォーマッターに Usage を追加します。
 ;; Usage って:
@@ -129,65 +129,68 @@
 ;;    prog [--version] [--help] [FILE1 [FILE2 ...]]
 ;;
 ;; みたいなやつね。
-(define-method help-formatter-add-usage! ((self <help-formatter>) usage actions groups :optional prefix)
-  (unless (equal? text ++suppress)
+(define-method formatter-add-usage! ((self <help-formatter>) usage actions groups :optional prefix)
+  (unless (equal? usage +suppress+)
           (let ((args (list usage actions groups prefix)))
-            (help-formatter-add-item! self (ref self format-usage) args))))
+            (formatter-add-item! self (ref self format-usage) args))))
 
 ;; ヘルプフォーマッターにアクションを追加します。
 ;; argument って書いてあるけど、実際は 引数フラグのインスタンスですね。
-(define-method help-formatter-add-argument! ((self <help-formatter>) (action <argument-action>))
+(define-method formatter-add-argument! ((self <help-formatter>) (action <argument-action>))
   (unless (equal? (help-of action) +suppress+)
-          (let* ((get-invocation# (ref self format-action-invocation))
-                 (invocations# (hash-table-get get-invocation# action)))
+          (let* ((get-invocation% (ref self format-action-invocation))
+                 (invocations% (hash-table-get get-invocation% action)))
+            ;; iter が含まれているメソッドは何を返すんだかわからないんだけど、リストだろと思って map を
+            ;; 使ってる。
             (map (lambda (subaction)
-                   (push! invocations# (hash-table-get get-invocation# subaction)))
-                 (help-formatter-iter-indented-subactions self action))
+                   (push! invocations% (hash-table-get get-invocation% subaction)))
+                 (formatter-iter-indented-subactions self action))
             ;; アイテムの最大長を更新します。
-            (let* ((invocation-length# (fold max 0 (map string-length invocations#)))
-                   (action-length# (+ invocation-length# (ref current-indent self)))
-                   (action-max-length# (ref action-max-length self)))
-              (set! (ref action-max-length self) (max action-max-length# action-length#)))
-            (help-formatter-add-item! self (ref format-action self) `(action)))))
+            (let* ((invocation-length% (fold max 0 (map string-length invocations%)))
+                   (action-length% (+ invocation-length% (ref current-indent self)))
+                   (action-max-length% (ref action-max-length self)))
+              (set! (ref action-max-length self) (max action-max-length% action-length%)))
+            (formatter-add-item! self (ref format-action self) `(action)))))
 
 ;; action のリストをヘルプフォーマッターに全て追加します。
-(define-method help-formatter-add-arguments! ((self <help-formatter>) (actions <list>))
+(define-method formatter-add-arguments! ((self <help-formatter>) (actions <list>))
   (map (lambda (action)
-         (help-formatter-add-argument! self action))
+         (formatter-add-argument! self action))
        actions))
 
-(define-method help-formatter-format-action-invocation ((self <help-formatter>) (action <argument-action>))
+(define-method formatter-format-action-invocation ((self <help-formatter>) (action <argument-action>))
   (if (not (null? (option-strings-of action)))
-      (let* ((default# (help-formatter-metavar-for-positional self action))
-             (metavar# (first (help-formatter-metavar-formatter self action default))))
-        metavar#)
+      (let* ((default% (formatter-metavar-for-positional self action))
+             (metavar% (first (formatter-metavar-formatter self action default))))
+        metavar%)
       ;; else
-      (let ((parts# '()))
-        (if (zero? (argument-action-nargs-count action))
-            (set! parts# (append parts# (option-strings-of action)))
+      (let ((parts% '()))
+        (if (zero? (action-nargs-count action))
+            (append parts% (option-strings-of action)))
             ;; else
-            (let* ((default# (help-formatter-metavar-for-optional self action))
-                   (args-string# (help-formatter-format-args self action default#)))
+            (let* ((default% (formatter-metavar-for-optional self action))
+                   (args-string% (formatter-format-args self action default%)))
               (map (lambda (option-string)
-                     (push! parts# (format "~A ~A" option-string args-string#)))
+                     (push! parts% (format "~A ~A" option-string args-string%)))
                    (option-strings-of action))
-              (string-join parts# ", "))))))
 
-(define-method help-formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default-metavar)
+              (string-join parts% ", "))))))
+
+(define-method formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default-metavar)
   (let ((result ""))
     (cond ((not (null? (ref metavar action)))
            => (set! result (ref metavar action)))
           ((not (null? (ref choices action)))
-           => (let ((choice-strs# (map x->string (ref choices action))))
-                (string-append "'" (string-join choice-strs# ",") "'")))
+           => (let ((choice-strs% (map x->string (ref choices action))))
+                (string-append "'" (string-join choice-strs% ",") "'")))
           (else => (set! result default-metavar)))
     (lambda (tuple-size)
-      (if (is-a result <list>)
+      (if (list? result)
           result
-          ;; else
+          ;; else  - TODO: ここは多値を返す(python のコードではタプルを返しているので…)。
           (make-list result tuple-size)))))
 
 
-(define-method help-formatter-format-args ((self <help-formatter>) (action <argument-action>) default-metavar)
-  (let ((get-metavar# (help-formatter-metavar-formatter self action default-metavar)))
+(define-method formatter-format-args ((self <help-formatter>) (action <argument-action>) default-metavar)
+  (let ((get-metavar% (formatter-metavar-formatter self action default-metavar)))
     )
