@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja">
 <head>
 <title>argparse コマンドラインオプション、引数、サブコマンドパーサー</title>
-<!-- 2014-04-01 火 06:03 -->
+<!-- 2014-04-02 水 05:30 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <meta  name="author" content="ned rihine" />
@@ -171,13 +171,18 @@ for the JavaScript code in this tag.
 <pre class="src src-scheme">(use pythonista.argparse)
 
 (<span style="color: #008b00; font-weight: bold;">let</span> ((parser (make-argument-parser <span style="color: #8968cd; font-weight: bold;">:description</span> <span style="color: #0000ff;">"Process some integers."</span>)))
-  (argument-parser-on parser <span style="color: #0000ff;">"integer"</span> <span style="color: #8968cd; font-weight: bold;">:metavar</span> <span style="color: #0000ff;">"N"</span> <span style="color: #8968cd; font-weight: bold;">:type</span> <span style="color: #228b22;">&lt;integer&gt;</span> <span style="color: #8968cd; font-weight: bold;">:nargs</span> <span style="color: #0000ff;">"+"</span>
-                      <span style="color: #8968cd; font-weight: bold;">:help</span> <span style="color: #0000ff;">"an integer for the accumulator"</span>)
-  (argument-parser-on parser <span style="color: #0000ff;">"--sum"</span> <span style="color: #8968cd; font-weight: bold;">:dest</span> <span style="color: #0000ff;">"accumulate"</span> <span style="color: #8968cd; font-weight: bold;">:action</span> <span style="color: #8968cd; font-weight: bold;">:store-const</span>
-                      <span style="color: #8968cd; font-weight: bold;">:const</span> sum <span style="color: #8968cd; font-weight: bold;">:default</span> max
-                      <span style="color: #8968cd; font-weight: bold;">:help</span> <span style="color: #0000ff;">"sum the integers (default: find the max)"</span>)
-  (<span style="color: #008b00; font-weight: bold;">let</span> (args (argument-parser-parse-args parser))
-    (display (accumulate (ref integers args)))))
+  (parser-on parser <span style="color: #0000ff;">"integer"</span> <span style="color: #8968cd; font-weight: bold;">:metavar</span> <span style="color: #0000ff;">"N"</span> <span style="color: #8968cd; font-weight: bold;">:type</span> <span style="color: #228b22;">&lt;integer&gt;</span> <span style="color: #8968cd; font-weight: bold;">:nargs</span> <span style="color: #0000ff;">"+"</span>
+             <span style="color: #8968cd; font-weight: bold;">:help</span> <span style="color: #0000ff;">"an integer for the accumulator"</span>)
+  (parser-on parser <span style="color: #0000ff;">"--sum"</span> <span style="color: #8968cd; font-weight: bold;">:dest</span> <span style="color: #8968cd; font-weight: bold;">:accumulate</span> <span style="color: #8968cd; font-weight: bold;">:action</span> <span style="color: #8968cd; font-weight: bold;">:store-const</span>
+             <span style="color: #8968cd; font-weight: bold;">:const</span> (<span style="color: #008b00; font-weight: bold;">lambda</span> (integers)
+                      (fold + 0 integers))
+             <span style="color: #8968cd; font-weight: bold;">:default</span> (<span style="color: #008b00; font-weight: bold;">lambda</span> (integers)
+                        (fold max 0 integers))
+             <span style="color: #8968cd; font-weight: bold;">:help</span> <span style="color: #0000ff;">"sum the integers (default: find the max)"</span>)
+  (<span style="color: #008b00; font-weight: bold;">let*</span> ((args (parser-parse parser))
+         (integers (tree-map-get args <span style="color: #8968cd; font-weight: bold;">:integer</span>))
+         (accumulate (tree-map-get args <span style="color: #8968cd; font-weight: bold;">:accumulate</span>)))
+    (display (accumulate integers)))))
 </pre>
 </div>
 
@@ -204,7 +209,7 @@ optional arguments:
 </div>
 <div id="postamble" class="status">
 <p class="author">&#33879;&#32773;: ned rihine</p>
-<p class="date">Created: 2014-04-01 火 06:03</p>
+<p class="date">Created: 2014-04-02 水 05:30</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 24.3.1 (<a href="http://orgmode.org">Org</a> mode 8.2.5f)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
