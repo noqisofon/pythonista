@@ -1,5 +1,6 @@
 ;; -*- coding: utf-8; -*-
-(define-module argparse)
+(define-module argparse
+  (export <argument-parser> make-argument-parser parser-on parser-parse))
 
 (select-module argparse)
 
@@ -177,20 +178,23 @@
               (string-join parts% ", "))))))
 
 (define-method formatter-metavar-formatter ((self <help-formatter>) (action <argument-action>) default-metavar)
-  (let ((result ""))
-    (cond ((not (null? (ref metavar action)))
-           => (set! result (ref metavar action)))
-          ((not (null? (ref choices action)))
-           => (let ((choice-strs% (map x->string (ref choices action))))
-                (string-append "'" (string-join choice-strs% ",") "'")))
-          (else => (set! result default-metavar)))
+  (let ((result (cond ((not (null? (ref metavar action))) (ref metavar action))
+                      ((not (null? (ref choices action))) (let ((choice-strs% (map x->string (ref choices action))))
+                                                            (string-append "'" (string-join choice-strs% ",") "'")))
+                      (else default-metavar))))
     (lambda (tuple-size)
-      (if (list? result)
-          result
-          ;; else  - TODO: ここは多値を返す(python のコードではタプルを返しているので…)。
-          (make-list result tuple-size)))))
+      (apply values (if (list? result)
+                        result
+                        ;; else
+                        (make-list result tuple-size))))))
 
 
 (define-method formatter-format-args ((self <help-formatter>) (action <argument-action>) default-metavar)
-  (let ((get-metavar% (formatter-metavar-formatter self action default-metavar)))
-    )
+  (let ((get-metavar% (formatter-metavar-formatter self action default-metavar))
+        (nargs% (ref action nargs)))
+    (cond ((null? nargs%)                    (receive (a) (get-metavar 1)
+                                                      (format "~A" a)))
+          ((equal? nargs% +optional+)        (receive (a) (get-metavar 1)
+                                                      (format "[~A]" a)))
+          ((equal? nargs% +zero-or-more+)    (receive (a b) (get-metavar 2)
+                                                      (format "~A [~A ...]" a b))))))
