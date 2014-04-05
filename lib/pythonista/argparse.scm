@@ -1,5 +1,6 @@
 ;; -*- coding: utf-8; -*-
 (define-module argparse
+  (use pythonista.textwrap)
   (export <argument-parser> make-argument-parser parser-on parser-parse))
 
 (select-module argparse)
@@ -208,3 +209,37 @@
                                        (format "~A" x))
                                      (iota nargs%))))
                   (string-join formats% " " (call-with-values ((get-metavar nargs%) list))))))))
+
+(define-method formatter-expand-help ((self <help-formatter>) (action <argument-action>))
+  (let ((params (hash-table (cons '(:prog . (prog-of self)) (action-vars action)))))
+    ;; value が +suppress+ だった場合は key を削除。
+    (map (lambda (name)
+           (if (string-equal? name +suppress+)
+               (hash-table-delete! params% name)))
+         (hash-table-keys params%))
+    ;; value が name スロットのある文字列以外のオブジェクト
+    ;; である場合は name の値を value に設定します。
+    (map (lambda (name)
+           (let ((value% (ref params% name)))
+             (if (slot-exists? value% name)
+               (set! (ref params% name) (ref value % name)))))
+         (hash-table-keys params%))
+    ;; params% はハッシュテーブルなので format 出来ない感じある。
+    (format (formatter-get-help-string self action) params%)))
+
+(define-method formatter-iter-indented-subactions ((self <help-formatter>) (action <argument-action>))
+  (let ((get-subactions% (action-get-subactions action)))
+    (formatter-indent self)
+    (map (lambda (subaction)
+           (action-yield subaction))
+         ;; get-subactions% はリストを返すことを前提に書いているが、
+         ;; get-subactions% はジェネレータのようである。
+         (get-subactions%))
+    (formatter-unindent self)))
+
+(define-method formatter-split-lines ((self <help-formatter>) (text <string>) (width <integer>))
+  (let* ((whitespace-matcher% (ref whitespace-matcher self))
+         (text% (regexp-replace-all* (regexp-replace whitespace-matcher% text " ")
+                                     #/^\s+/ ""
+                                     #/\s+$/ "")))
+    ))
