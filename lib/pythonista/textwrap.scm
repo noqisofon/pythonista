@@ -1,5 +1,6 @@
 ;; -*- coding: utf-8; -*-
 (define-module textwrap
+  (use gauche.generator)
   (export textwrap-wrap textwrap-fill textwrap-unindent textwrap-indent
           <text-wrapper> wrapper-wrap wrapper-fill wrapper-unindent wrapper-indent))
 
@@ -8,6 +9,10 @@
 ;; ホワイトスペースを表す正規表現な定数。
 (define-constant +whitespace+ #/\s/)
 
+(define-constant +word-separator+ #/(\s+|[^\s\w]*\w[-^0-9\W]-(?=\w+[^0-9\W])|(?<=[\w\!\"'&\.\,\?])-{2,}(?=\w))/)
+
+(define-constant +word-separator-simple+ #/(\s+)/)
+
 
 (define-class <text-wrapper> ()
   ;;  width は wrap するテキストの幅を表すんじゃないかな。
@@ -15,4 +20,46 @@
   ((width :allocation :instance :init-keyword :width :init-value 70)
    ;; 最初のインデント幅を表します。と思ったんだけど、実際のインデント用の文字列の模様。
    (initial-indent :allocation :instance :init-keyword :initial-indent :init-value "")
-   ))
+   ;;
+   (subsequent-indent :allocation :instance :init-keyword :subsequent-indent :init-value "")
+   ;;
+   (expand-tabs :allocation :instance :init-keyword :expand-tabs :init-value #t)
+   ;;
+   (replace-whitespace :allocation :instance :init-keyword :replace-whitespace :init-value #t)
+   ;;
+   (fix-sentence-endings :allocation :instance :init-keyword :fix-sentence-endings :init-value #t)
+   ;;
+   (drop-whitespace :allocation :instance :init-keyword :drop-whitespace :init-value #t)
+   ;;
+   (break-on-hypens :allocation :instance :init-keyword :break-on-hypens :init-value #t)
+   ;;
+   (tab-size :allocation :instance :init-keyword :tab-size :init-value 8)))
+
+
+;;
+;; Private Method
+;; ================================================================
+;; text を色々置換する。
+(define-method wrapper-munge-whitespace ((self <text-wrapper>) (text <string>))
+  (let ((text% text))
+    (when (ref expand-tabs self)
+          (set! text% (regexp-replace-all #/\t/ text% "    ")))
+    ;; ホワイトスペースっぽいのはスペースにしてるけど、何かの変数で置換してる。
+    (when (ref replace-whitespace self)
+          (set! text% (regexp-replace-all #/\s/ text% " ")))
+    text%))
+
+
+(define-method wrapper-split ((self <text-wrapper>) (text <string>))
+  ;; gauche には python の RE#split のようなものはないので、ジェネレーターを使う必要がある。
+  (let ((chunks% ($ generator->list
+                    $ gmap rxmatch-substring
+                    $ grxmatch (if (ref break-on-hypens self)
+                                   +word-separator+
+                                   +word-separator-simple+) text)))
+    (filter (lambda (c)
+              (> (string-length c) 0)) chunks%))))
+  
+  
+(define-method wrapper-fix-sentence-endings ((self <text-wrapper>) (thunks <sequence>))
+  (let (()))))
