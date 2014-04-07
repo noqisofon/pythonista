@@ -61,5 +61,25 @@
               (> (string-length c) 0)) chunks%))))
   
   
-(define-method wrapper-fix-sentence-endings ((self <text-wrapper>) (thunks <sequence>))
-  (let (()))))
+(define-method wrapper-fix-sentence-endings ((self <text-wrapper>) (chunks <sequence>))
+  (define (loop chunks)
+    (if (null? chunks)
+        '()
+        (let ((first% (car chunks))
+              (second% (cdr (car chunks))))
+          (cons first% (if (and (string=? second% " ") (pat-search first%))
+                           (cons "  " (loop (cdr (cdr chunk))))
+                           (cons second$ (loop (cdr chunk))))))))
+  (loop chunks))
+
+
+(define-method wrapper-handle-long-word ((self <text-wrapper>) (reversed-chunks <sequence>) (cur-line <sequence>) (cur-len <integer>) (width <integer>))
+  (let ((space-left% (if (< width 1)
+                         1
+                         (- width cur-lent))))
+    ;; ここら辺、よくわかんない＞＜
+    (cond ((ref break-long-words self)  (begin (push! cur-line (revesed-chunks -1 :space-left))
+                                               (revesed-chuks -1 (revesed-chunks -1 :space-left))))
+          ((not cur-line)               (push! cur-line (pop! revesed-chunks))))))
+
+
