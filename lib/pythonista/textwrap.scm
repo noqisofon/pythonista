@@ -8,10 +8,11 @@
 
 ;; ホワイトスペースを表す正規表現な定数。
 (define-constant +whitespace+ #/\s/)
+;; 単語の区切りを表す正規表現。
+(define-constant +word-separator-simple+ #/(\s+)/)
 
 (define-constant +word-separator+ #/(\s+|[^\s\w]*\w[-^0-9\W]-(?=\w+[^0-9\W])|(?<=[\w\!\"'&\.\,\?])-{2,}(?=\w))/)
 
-(define-constant +word-separator-simple+ #/(\s+)/)
 
 
 (define-class <text-wrapper> ()
@@ -76,10 +77,29 @@
 (define-method wrapper-handle-long-word ((self <text-wrapper>) (reversed-chunks <sequence>) (cur-line <sequence>) (cur-len <integer>) (width <integer>))
   (let ((space-left% (if (< width 1)
                          1
-                         (- width cur-lent))))
+                         (- width cur-len))))
     ;; ここら辺、よくわかんない＞＜
     (cond ((ref break-long-words self)  (begin (push! cur-line (revesed-chunks -1 :space-left))
-                                               (revesed-chuks -1 (revesed-chunks -1 :space-left))))
-          ((not cur-line)               (push! cur-line (pop! revesed-chunks))))))
+                                               (revesed-chunks -1 (revesed-chunks -1 :space-left))))
+          ((not (null? cur-line))       (push! cur-line (pop! revesed-chunks))))))
 
+(define (strip s)
+  (regexp-repace-all s
+                     #/^\s+/ ""
+                     #/\s+$/ ""))
 
+(define-method wrapper-wrap-chunks ((self <text-wrapper>) (chunks <sequence>))
+  (let ((line% '()))
+    (when (<= (ref width self) 0)
+          (errorf "invalid width ~A (must be > 0)" (ref width self)))
+    (reverse! chunks)
+    (define (loop chunks%)
+      (let* ((cur-line% '())
+             (cur-len% 0)
+             (indent% (if (null? lines%)
+                          (ref subsequent-indent self)
+                          ;; else
+                          (ref initial-indent self)))
+             (width% (- (ref width self) indent%)))
+        (when (and (ref drop-whitespace) (string=? )))))
+    (loop chunks)))
