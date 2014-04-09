@@ -83,26 +83,17 @@
                                                (revesed-chunks -1 (revesed-chunks -1 :space-left))))
           ((not (null? cur-line))       (push! cur-line (pop! revesed-chunks))))))
 
+;; 先頭や末尾の空白を削除したものを返します。
 (define (strip s)
-  (regexp-repace-all s
-                     #/^\s+/ ""
-                     #/\s+$/ ""))
+  (regexp-repace-all* s
+                      #/^\s+/ ""
+                      #/\s+$/ ""))
 
 (define-method wrapper-wrap-chunks ((self <text-wrapper>) (chunks <sequence>))
   (let ((line% '()))
     (when (<= (ref width self) 0)
           (errorf "invalid width ~A (must be > 0)" (ref width self)))
     (reverse! chunks)
-    (define (inner-loop chunks% cur-line% cur-len%)
-      (cond ((null? chunks%) (loop chunks%))
-            (else (let ((len% (string-length (last chunks%))))
-                    (if (<= (+ cur-len% len%) width%)
-                        (begin
-                          (push! cur-line% (pop! chunks%))
-                          (set! cur-len% (+ cur-len% len%))
-                          (inner-loop chunks% cur-line% cur-len%))
-                        ;; else
-                        (loop chunks% cur-line% cur-len%))))))
     (define (loop chunks% cur-line% cur-len%)
       (cond ((null? chunks%) #f)
             (else (let* ((indent% (if (null? lines%)
@@ -110,8 +101,31 @@
                                       ;; else
                                       (ref initial-indent self)))
                          (width% (- (ref width self) indent%)))
+                    (define (inner-loop chunks%%)
+                      (cond ((null? chunks%) (loop chunks%%))
+                            (else (let ((len% (string-length (last chunks%%))))
+                                    (if (<= (+ cur-len% len%) width%)
+                                        (begin
+                                          (push! cur-line% (pop! chunks%%))
+                                          (set! cur-len% (+ cur-len% len%))
+                                          (inner-loop chunks%% cur-line% cur-len%))
+                                        ;; else
+                                        chunks%%)))))
                     (when (and (ref drop-whitespace) (string=? (strip (last chunks%)) "") (null? lines%))
                           (drop-light! chunks 1))
-                    )))
-      )
-    (loop chunks '() 0)))
+                    (set! chunks% (inner-loop chunks%))
+                    (when (and chunks% (> (string-length (last chunks%)) width%))
+                          (wrapper-handle-long-word self))
+                    (when (and (ref drop-whitespace self) cur-line% (string=? (strip (last chunks%)) ""))
+                          (drop-light! chunks 1))
+                    (when cur-line%
+                     (push! lines% (string-concat indent% (string-join cur-line% "")))))))))
+    (loop chunks '() 0)
+    lines%))
+
+;;
+;; Public Method
+;; ================================================================
+;;
+(define-method wrapper-munge-whitespace ((self <text-wrapper>) (text <string>))
+  )
